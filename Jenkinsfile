@@ -137,16 +137,19 @@ pipeline {
                     export JAVA_HOME="${TOOL_JDK_21}"
                     export PATH="$JAVA_HOME/bin:$PATH"
                     mvn clean package shade:shade -DskipTests
-                    
-                    # Verify the JAR was created
-                    if [ ! -f target/*.jar ]; then
-                        echo "ERROR: Lambda JAR not found!"
+
+                    # Verify the shaded JAR was created (this is the deployable Lambda JAR)
+                    if [ ! -f target/${LAMBDA_NAME}.jar ]; then
+                        echo "ERROR: Lambda shaded JAR not found: target/${LAMBDA_NAME}.jar"
+                        ls -la target/
                         exit 1
                     fi
-                    
-                    # Create deployment package
+
+                    # Create deployment package with the shaded JAR
                     mkdir -p deployment
-                    cp target/*.jar deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar
+                    cp target/${LAMBDA_NAME}.jar deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar
+
+                    echo "✅ Lambda JAR packaged: deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar"
                 '''
                 
                 archiveArtifacts artifacts: 'deployment/*.jar', fingerprint: true
