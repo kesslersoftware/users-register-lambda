@@ -5,8 +5,8 @@ pipeline {
     agent any
     
     tools {
-        maven 'Maven-3.9'
-        jdk 'OpenJDK-21'
+        maven 'Maven'
+        jdk 'JDK-21'
     }
     
     parameters {
@@ -43,10 +43,12 @@ pipeline {
         
         stage('Test') {
             when {
-                not { params.SKIP_TESTS }
+                expression { !params.SKIP_TESTS }
             }
             steps {
                 sh '''
+                    export JAVA_HOME="${TOOL_JDK_21}"
+                    export PATH="$JAVA_HOME/bin:$PATH"
                     mvn clean test
                 '''
             }
@@ -54,7 +56,7 @@ pipeline {
                 always {
                     script {
                         try {
-                            publishTestResults testResultsPattern: 'target/surefire-reports/*.xml'
+                            junit testResultsPattern: 'target/surefire-reports/*.xml'
                             echo "✅ Test results published successfully"
                         } catch (Exception e) {
                             echo "⚠️ Failed to publish test results: ${e.getMessage()}"
@@ -80,13 +82,15 @@ pipeline {
         
         stage('SonarQube Analysis') {
             when {
-                not { params.SKIP_TESTS }
+                expression { !params.SKIP_TESTS }
             }
             steps {
                 script {
                     try {
                         withSonarQubeEnv('Local-SonarQube') {
                             sh '''
+                                export JAVA_HOME="${TOOL_JDK_21}"
+                                export PATH="$JAVA_HOME/bin:$PATH"
                                 mvn sonar:sonar \
                                     -Dsonar.projectKey=${LAMBDA_NAME} \
                                     -Dsonar.projectName="${LAMBDA_NAME}" \
@@ -104,7 +108,7 @@ pipeline {
         
         stage('Quality Gate (Informational Only)') {
             when {
-                not { params.SKIP_TESTS }
+                expression { !params.SKIP_TESTS }
             }
             steps {
                 script {
@@ -130,6 +134,8 @@ pipeline {
         stage('Build Lambda Package') {
             steps {
                 sh '''
+                    export JAVA_HOME="${TOOL_JDK_21}"
+                    export PATH="$JAVA_HOME/bin:$PATH"
                     mvn clean package shade:shade -DskipTests
                     
                     # Verify the JAR was created
