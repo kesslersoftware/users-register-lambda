@@ -9,7 +9,9 @@
   <properties>
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>    <jacoco.version>0.8.10</jacoco.version>
+    <sonar.organization>kesslersoftware</sonar.organization>
+    <sonar.host.url>http://localhost:9000</sonar.host.url>
   </properties>
   <dependencies>
     <!-- AWS Lambda -->
@@ -73,7 +75,7 @@
     <dependency>
       <groupId>com.boycottpro</groupId>
       <artifactId>boycottpro-common-models</artifactId>
-      <version>1.0.0</version>
+      <version>1.0.11</version>
     </dependency>
   </dependencies>
   <repositories>
