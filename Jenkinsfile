@@ -10,22 +10,15 @@ pipeline {
     }
     
     parameters {
-        choice(
-            name: 'DEPLOY_ENVIRONMENT',
-            choices: ['dev', 'staging', 'test', 'prod'],
-            description: 'Target deployment environment'
-        )
         booleanParam(
             name: 'SKIP_TESTS',
             defaultValue: false,
-            description: 'Skip unit tests (emergency deployments only)'
+            description: 'Skip unit tests (emergency builds only)'
         )
     }
-    
+
     environment {
-        AWS_PROFILE = "boycottpro-${params.DEPLOY_ENVIRONMENT}-ops"
         LAMBDA_NAME = "${env.JOB_NAME.replace('-pipeline', '')}"
-        REGION = "us-east-1"
     }
     
     stages {
@@ -156,30 +149,21 @@ pipeline {
             }
         }
         
-        stage('Deploy to AWS') {
-            steps {
-                deployLambda()
-            }
-        }
-        
-        stage('Integration Tests') {
-            when {
-                expression { params.DEPLOY_ENVIRONMENT != 'prod' }
-            }
+        stage('Verify Lambda Package') {
             steps {
                 script {
-                    // Run basic Lambda invocation test
+                    // Verify the deployment package is valid
                     sh '''
-                        aws lambda invoke \
-                            --function-name ${LAMBDA_NAME}-${DEPLOY_ENVIRONMENT} \
-                            --payload '{"test": true}' \
-                            --region ${REGION} \
-                            --profile ${AWS_PROFILE} \
-                            response.json
-                            
-                        # Check if Lambda responded
-                        if [ ! -s response.json ]; then
-                            echo "ERROR: Lambda did not respond"
+                        echo "✅ Lambda package verification"
+                        echo "   JAR file: deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar"
+                        ls -la deployment/
+
+                        # Basic JAR validation
+                        if [ -f deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar ]; then
+                            echo "✅ Lambda JAR package created successfully"
+                            echo "   Ready for manual deployment to AWS Lambda"
+                        else
+                            echo "❌ Lambda JAR package not found"
                             exit 1
                         fi
                     '''
@@ -193,41 +177,15 @@ pipeline {
             cleanWs()
         }
         success {
-            script {
-                if (params.DEPLOY_ENVIRONMENT == 'prod') {
-                    // Tag the successful production deployment
-                    sh """
-                        git tag -a prod-${env.GIT_COMMIT_SHORT} -m "Production deployment of ${LAMBDA_NAME}"
-                        git push origin prod-${env.GIT_COMMIT_SHORT}
-                    """
-                }
-            }
+            echo "✅ Lambda build completed successfully"
+            echo "📦 JAR package ready for manual deployment: deployment/${LAMBDA_NAME}-${env.GIT_COMMIT_SHORT}.jar"
         }
         failure {
             emailext (
-                subject: "FAILED: Lambda Deployment - ${LAMBDA_NAME}",
-                body: "Lambda deployment failed for ${LAMBDA_NAME} in ${params.DEPLOY_ENVIRONMENT} environment. Check Jenkins for details.",
+                subject: "FAILED: Lambda Build - ${LAMBDA_NAME}",
+                body: "Lambda build failed for ${LAMBDA_NAME}. Check Jenkins for details.",
                 to: "dylan@kesslersoftware.com"
             )
         }
-    }
-}
-
-def deployLambda() {
-    withAWS(profile: env.AWS_PROFILE, region: env.REGION) {
-        sh """
-            # Update Lambda function directly with JAR file
-            aws lambda update-function-code \
-                --function-name ${LAMBDA_NAME}-${params.DEPLOY_ENVIRONMENT} \
-                --zip-file fileb://deployment/${LAMBDA_NAME}-${env.GIT_COMMIT_SHORT}.jar \
-                --region ${env.REGION}
-            
-            # Wait for update to complete
-            aws lambda wait function-updated \
-                --function-name ${LAMBDA_NAME}-${params.DEPLOY_ENVIRONMENT} \
-                --region ${env.REGION}
-                
-            echo "Successfully deployed ${LAMBDA_NAME} to ${env.REGION}"
-        """
     }
 }
