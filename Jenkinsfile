@@ -39,11 +39,30 @@ pipeline {
                 expression { !params.SKIP_TESTS }
             }
             steps {
+                script {
+                    // Create custom Maven settings to override HTTP blocker
+                    writeFile file: 'custom-settings.xml', text: '''<?xml version="1.0" encoding="UTF-8"?>
+<settings>
+  <mirrors>
+    <mirror>
+      <id>nexus-all</id>
+      <mirrorOf>*</mirrorOf>
+      <url>http://host.docker.internal:8096/repository/maven-public/</url>
+    </mirror>
+  </mirrors>
+  <servers>
+    <server>
+      <id>nexus-all</id>
+      <username>admin</username>
+      <password>admin123</password>
+    </server>
+  </servers>
+</settings>'''
+                }
                 sh '''
                     export JAVA_HOME="${TOOL_JDK_21}"
                     export PATH="$JAVA_HOME/bin:$PATH"
-                    export MAVEN_OPTS="-Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.resolver.transport=wagon"
-                    mvn clean test
+                    mvn clean test -s custom-settings.xml
                 '''
             }
             post {
