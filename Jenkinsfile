@@ -42,7 +42,8 @@ pipeline {
                 sh '''
                     export JAVA_HOME="${TOOL_JDK_21}"
                     export PATH="$JAVA_HOME/bin:$PATH"
-                    mvn clean test -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.resolver.transport=wagon
+                    export MAVEN_OPTS="-Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.resolver.transport=wagon"
+                    mvn clean test
                 '''
             }
             post {
@@ -84,13 +85,11 @@ pipeline {
                             sh '''
                                 export JAVA_HOME="${TOOL_JDK_21}"
                                 export PATH="$JAVA_HOME/bin:$PATH"
+                                export MAVEN_OPTS="-Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.resolver.transport=wagon"
                                 mvn sonar:sonar \
                                     -Dsonar.projectKey=${LAMBDA_NAME} \
                                     -Dsonar.projectName="${LAMBDA_NAME}" \
-                                    -Dsonar.projectVersion=${GIT_COMMIT_SHORT} \
-                                    -Dmaven.wagon.http.ssl.insecure=true \
-                                    -Dmaven.wagon.http.ssl.allowall=true \
-                                    -Dmaven.resolver.transport=wagon
+                                    -Dsonar.projectVersion=${GIT_COMMIT_SHORT}
                             '''
                         }
                         echo "✅ SonarQube analysis completed successfully"
@@ -132,7 +131,8 @@ pipeline {
                 sh '''
                     export JAVA_HOME="${TOOL_JDK_21}"
                     export PATH="$JAVA_HOME/bin:$PATH"
-                    mvn clean package shade:shade -DskipTests -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.resolver.transport=wagon
+                    export MAVEN_OPTS="-Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.resolver.transport=wagon"
+                    mvn clean package shade:shade -DskipTests
 
                     # Verify the shaded JAR was created (this is the deployable Lambda JAR)
                     if [ ! -f target/${LAMBDA_NAME}.jar ]; then
