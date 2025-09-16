@@ -75,8 +75,15 @@
   </dependencies>
   <repositories>
     <repository>
-      <id>github</id>
-      <url>https://maven.pkg.github.com/kesslersoftware/boycottpro-common-models</url>
+      <id>nexus-public</id>
+      <name>Nexus Public Repository</name>
+      <url>http://localhost:8096/repository/maven-public/</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
     </repository>
   </repositories>
   <build>
