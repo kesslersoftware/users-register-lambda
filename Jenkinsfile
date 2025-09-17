@@ -157,7 +157,7 @@ pipeline {
       <password>admin123</password>
     </server>
     <server>
-      <id>lambda-artifacts-dev</id>
+      <id>lambda-artifacts-${ENV}</id>
       <username>admin</username>
       <password>admin123</password>
     </server>
@@ -204,14 +204,14 @@ pipeline {
                             -DartifactId=${LAMBDA_NAME} \
                             -Dversion=${ARTIFACT_VERSION} \
                             -Dpackaging=jar \
-                            -DrepositoryId=lambda-artifacts-dev \
-                            -Durl=http://host.docker.internal:8096/repository/lambda-artifacts-dev/ \
+                            -DrepositoryId=lambda-artifacts-${ENV} \
+                            -Durl=http://host.docker.internal:8096/repository/lambda-artifacts-${ENV}/ \
                             -s custom-settings.xml
 
                         echo "✅ Published ${LAMBDA_NAME}:${ARTIFACT_VERSION} to Nexus"
-                        echo "🔗 View at: http://localhost:8096/#browse/browse:lambda-artifacts-dev"
-                        echo "📍 Repository: lambda-artifacts-dev"
-                        echo "🔗 URL: http://localhost:8096/repository/lambda-artifacts-dev/"
+                        echo "🔗 View at: http://localhost:8096/#browse/browse:lambda-artifacts-${ENV}"
+                        echo "📍 Repository: lambda-artifacts-${ENV}"
+                        echo "🔗 URL: http://localhost:8096/repository/lambda-artifacts-${ENV}/"
                     '''
                 }
             }
@@ -250,7 +250,7 @@ pipeline {
             echo "✅ Lambda build completed successfully"
             echo "📦 JAR package: ${LAMBDA_NAME}-${env.ARTIFACT_VERSION}.jar"
             echo "🏷️  Version format: git-commit + build-number + timestamp"
-            echo "🔗 Nexus: http://localhost:8096/#browse/browse:lambda-artifacts-dev"
+            echo "🔗 Nexus: http://localhost:8096/#browse/browse:lambda-artifacts-${ENV}"
         }
         failure {
             emailext (
