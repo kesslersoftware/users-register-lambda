@@ -19,8 +19,6 @@ pipeline {
 
     environment {
         LAMBDA_NAME = "${env.JOB_NAME.replace('-pipeline', '')}"
-        BUILD_TIMESTAMP = sh(script: 'date +"%Y%m%d-%H%M%S"', returnStdout: true).trim()
-        ARTIFACT_VERSION = "${GIT_COMMIT_SHORT}-${BUILD_NUMBER}-${BUILD_TIMESTAMP}"
     }
     
     stages {
@@ -32,6 +30,19 @@ pipeline {
                         script: "git rev-parse --short HEAD",
                         returnStdout: true
                     ).trim()
+
+                    env.BUILD_TIMESTAMP = sh(
+                        script: 'date +"%Y%m%d-%H%M%S"',
+                        returnStdout: true
+                    ).trim()
+
+                    env.ARTIFACT_VERSION = "${env.GIT_COMMIT_SHORT}-${env.BUILD_NUMBER}-${env.BUILD_TIMESTAMP}"
+
+                    echo "📝 Version components:"
+                    echo "   Git commit: ${env.GIT_COMMIT_SHORT}"
+                    echo "   Build number: ${env.BUILD_NUMBER}"
+                    echo "   Timestamp: ${env.BUILD_TIMESTAMP}"
+                    echo "   Full version: ${env.ARTIFACT_VERSION}"
                 }
             }
         }
@@ -170,10 +181,6 @@ pipeline {
                     cp target/${LAMBDA_NAME}.jar deployment/${LAMBDA_NAME}-${ARTIFACT_VERSION}.jar
 
                     echo "✅ Lambda JAR packaged: deployment/${LAMBDA_NAME}-${ARTIFACT_VERSION}.jar"
-                    echo "📝 Version breakdown:"
-                    echo "   Git commit: ${GIT_COMMIT_SHORT}"
-                    echo "   Build number: ${BUILD_NUMBER}"
-                    echo "   Timestamp: ${BUILD_TIMESTAMP}"
                 '''
 
                 archiveArtifacts artifacts: 'deployment/*.jar', fingerprint: true
