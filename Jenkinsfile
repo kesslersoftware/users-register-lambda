@@ -39,30 +39,10 @@ pipeline {
                 expression { !params.SKIP_TESTS }
             }
             steps {
-                script {
-                    // Create custom Maven settings to override HTTP blocker
-                    writeFile file: 'custom-settings.xml', text: '''<?xml version="1.0" encoding="UTF-8"?>
-<settings>
-  <mirrors>
-    <mirror>
-      <id>nexus-all</id>
-      <mirrorOf>*</mirrorOf>
-      <url>http://host.docker.internal:8096/repository/maven-public/</url>
-    </mirror>
-  </mirrors>
-  <servers>
-    <server>
-      <id>nexus-all</id>
-      <username>admin</username>
-      <password>admin123</password>
-    </server>
-  </servers>
-</settings>'''
-                }
                 sh '''
                     export JAVA_HOME="${TOOL_JDK_21}"
                     export PATH="$JAVA_HOME/bin:$PATH"
-                    mvn clean test -s custom-settings.xml
+                    mvn clean test
                 '''
             }
             post {
@@ -100,24 +80,6 @@ pipeline {
             steps {
                 script {
                     try {
-                        // Create custom Maven settings for SonarQube stage
-                        writeFile file: 'custom-settings.xml', text: '''<?xml version="1.0" encoding="UTF-8"?>
-<settings>
-  <mirrors>
-    <mirror>
-      <id>nexus-all</id>
-      <mirrorOf>*</mirrorOf>
-      <url>http://host.docker.internal:8096/repository/maven-public/</url>
-    </mirror>
-  </mirrors>
-  <servers>
-    <server>
-      <id>nexus-all</id>
-      <username>admin</username>
-      <password>admin123</password>
-    </server>
-  </servers>
-</settings>'''
                         withSonarQubeEnv('Local-SonarQube') {
                             sh '''
                                 export JAVA_HOME="${TOOL_JDK_21}"
@@ -125,8 +87,7 @@ pipeline {
                                 mvn sonar:sonar \
                                     -Dsonar.projectKey=${LAMBDA_NAME} \
                                     -Dsonar.projectName="${LAMBDA_NAME}" \
-                                    -Dsonar.projectVersion=${GIT_COMMIT_SHORT} \
-                                    -s custom-settings.xml
+                                    -Dsonar.projectVersion=${GIT_COMMIT_SHORT}
                             '''
                         }
                         echo "✅ SonarQube analysis completed successfully"
@@ -166,7 +127,7 @@ pipeline {
         stage('Build Lambda Package') {
             steps {
                 script {
-                    // Create custom Maven settings for this stage too
+                    // Create custom Maven settings to override HTTP blocker
                     writeFile file: 'custom-settings.xml', text: '''<?xml version="1.0" encoding="UTF-8"?>
 <settings>
   <mirrors>
@@ -179,6 +140,11 @@ pipeline {
   <servers>
     <server>
       <id>nexus-all</id>
+      <username>admin</username>
+      <password>admin123</password>
+    </server>
+    <server>
+      <id>lambda-artifacts-dev</id>
       <username>admin</username>
       <password>admin123</password>
     </server>
@@ -203,8 +169,36 @@ pipeline {
 
                     echo "✅ Lambda JAR packaged: deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar"
                 '''
-                
+
                 archiveArtifacts artifacts: 'deployment/*.jar', fingerprint: true
+            }
+        }
+
+        stage('Publish to Nexus') {
+            steps {
+                script {
+                    echo "📦 Publishing Lambda JAR to Nexus artifact repository..."
+
+                    sh '''
+                        export JAVA_HOME="${TOOL_JDK_21}"
+                        export PATH="$JAVA_HOME/bin:$PATH"
+
+                        # Deploy to Nexus using Maven deploy plugin
+                        mvn deploy:deploy-file \
+                            -Dfile=deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar \
+                            -DgroupId=com.boycottpro.lambda \
+                            -DartifactId=${LAMBDA_NAME} \
+                            -Dversion=${GIT_COMMIT_SHORT} \
+                            -Dpackaging=jar \
+                            -DrepositoryId=lambda-artifacts-dev \
+                            -Durl=http://host.docker.internal:8096/repository/lambda-artifacts-dev/ \
+                            -s custom-settings.xml
+
+                        echo "✅ Published ${LAMBDA_NAME}:${GIT_COMMIT_SHORT} to Nexus"
+                        echo "📍 Repository: lambda-artifacts-dev"
+                        echo "🔗 URL: http://localhost:8096/repository/lambda-artifacts-dev/"
+                    '''
+                }
             }
         }
         
