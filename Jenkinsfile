@@ -19,6 +19,8 @@ pipeline {
 
     environment {
         LAMBDA_NAME = "${env.JOB_NAME.replace('-pipeline', '')}"
+        BUILD_TIMESTAMP = sh(script: 'date +"%Y%m%d-%H%M%S"', returnStdout: true).trim()
+        ARTIFACT_VERSION = "${GIT_COMMIT_SHORT}-${BUILD_NUMBER}-${BUILD_TIMESTAMP}"
     }
     
     stages {
@@ -165,12 +167,17 @@ pipeline {
 
                     # Create deployment package with the shaded JAR
                     mkdir -p deployment
-                    cp target/${LAMBDA_NAME}.jar deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar
+                    cp target/${LAMBDA_NAME}.jar deployment/${LAMBDA_NAME}-${ARTIFACT_VERSION}.jar
 
-                    echo "✅ Lambda JAR packaged: deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar"
+                    echo "✅ Lambda JAR packaged: deployment/${LAMBDA_NAME}-${ARTIFACT_VERSION}.jar"
+                    echo "📝 Version breakdown:"
+                    echo "   Git commit: ${GIT_COMMIT_SHORT}"
+                    echo "   Build number: ${BUILD_NUMBER}"
+                    echo "   Timestamp: ${BUILD_TIMESTAMP}"
                 '''
 
                 archiveArtifacts artifacts: 'deployment/*.jar', fingerprint: true
+                echo "📦 Archived: ${LAMBDA_NAME}-${ARTIFACT_VERSION}.jar"
             }
         }
 
@@ -185,16 +192,17 @@ pipeline {
 
                         # Deploy to Nexus using Maven deploy plugin
                         mvn deploy:deploy-file \
-                            -Dfile=deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar \
+                            -Dfile=deployment/${LAMBDA_NAME}-${ARTIFACT_VERSION}.jar \
                             -DgroupId=com.boycottpro.lambda \
                             -DartifactId=${LAMBDA_NAME} \
-                            -Dversion=${GIT_COMMIT_SHORT} \
+                            -Dversion=${ARTIFACT_VERSION} \
                             -Dpackaging=jar \
                             -DrepositoryId=lambda-artifacts-dev \
                             -Durl=http://host.docker.internal:8096/repository/lambda-artifacts-dev/ \
                             -s custom-settings.xml
 
-                        echo "✅ Published ${LAMBDA_NAME}:${GIT_COMMIT_SHORT} to Nexus"
+                        echo "✅ Published ${LAMBDA_NAME}:${ARTIFACT_VERSION} to Nexus"
+                        echo "🔗 View at: http://localhost:8096/#browse/browse:lambda-artifacts-dev"
                         echo "📍 Repository: lambda-artifacts-dev"
                         echo "🔗 URL: http://localhost:8096/repository/lambda-artifacts-dev/"
                     '''
@@ -208,13 +216,15 @@ pipeline {
                     // Verify the deployment package is valid
                     sh '''
                         echo "✅ Lambda package verification"
-                        echo "   JAR file: deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar"
+                        echo "   JAR file: deployment/${LAMBDA_NAME}-${ARTIFACT_VERSION}.jar"
+                        echo "   Version: ${ARTIFACT_VERSION}"
                         ls -la deployment/
 
                         # Basic JAR validation
-                        if [ -f deployment/${LAMBDA_NAME}-${GIT_COMMIT_SHORT}.jar ]; then
+                        if [ -f deployment/${LAMBDA_NAME}-${ARTIFACT_VERSION}.jar ]; then
                             echo "✅ Lambda JAR package created successfully"
-                            echo "   Ready for manual deployment to AWS Lambda"
+                            echo "   🎯 Unique version ensures no Nexus overwrites"
+                            echo "   📦 Ready for deployment to AWS Lambda"
                         else
                             echo "❌ Lambda JAR package not found"
                             exit 1
@@ -231,7 +241,9 @@ pipeline {
         }
         success {
             echo "✅ Lambda build completed successfully"
-            echo "📦 JAR package ready for manual deployment: deployment/${LAMBDA_NAME}-${env.GIT_COMMIT_SHORT}.jar"
+            echo "📦 JAR package: ${LAMBDA_NAME}-${env.ARTIFACT_VERSION}.jar"
+            echo "🏷️  Version format: git-commit + build-number + timestamp"
+            echo "🔗 Nexus: http://localhost:8096/#browse/browse:lambda-artifacts-dev"
         }
         failure {
             emailext (
