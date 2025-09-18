@@ -191,13 +191,13 @@ pipeline {
         stage('Publish to Nexus') {
             steps {
                 script {
-                    echo "📦 Publishing Lambda JAR to Nexus artifact repository..."
+                    echo "📦 Publishing Lambda JAR to Nexus with dual versioning strategy..."
 
                     sh '''
                         export JAVA_HOME="${TOOL_JDK_21}"
                         export PATH="$JAVA_HOME/bin:$PATH"
 
-                        # Deploy to Nexus using Maven deploy plugin
+                        # 1. Deploy with traceability version (e.g., a1b2c3d-123-20250917-143022)
                         mvn deploy:deploy-file \
                             -Dfile=deployment/${LAMBDA_NAME}-${ARTIFACT_VERSION}.jar \
                             -DgroupId=com.boycottpro.lambda \
@@ -209,6 +209,23 @@ pipeline {
                             -s custom-settings.xml
 
                         echo "✅ Published ${LAMBDA_NAME}:${ARTIFACT_VERSION} to Nexus"
+
+                        # 2. Deploy with LATEST alias (overwrite previous LATEST)
+                        mvn deploy:deploy-file \
+                            -Dfile=deployment/${LAMBDA_NAME}-${ARTIFACT_VERSION}.jar \
+                            -DgroupId=com.boycottpro.lambda \
+                            -DartifactId=${LAMBDA_NAME} \
+                            -Dversion=LATEST \
+                            -Dpackaging=jar \
+                            -DrepositoryId=lambda-artifacts-${ENV} \
+                            -Durl=http://host.docker.internal:8096/repository/lambda-artifacts-${ENV}/ \
+                            -s custom-settings.xml
+
+                        echo "✅ Published ${LAMBDA_NAME}:LATEST alias to Nexus"
+
+                        echo "🎯 Dual versioning strategy complete:"
+                        echo "   Traceability: ${LAMBDA_NAME}:${ARTIFACT_VERSION}"
+                        echo "   Alias: ${LAMBDA_NAME}:LATEST"
                         echo "🔗 View at: http://localhost:8096/#browse/browse:lambda-artifacts-${ENV}"
                         echo "📍 Repository: lambda-artifacts-${ENV}"
                         echo "🔗 URL: http://localhost:8096/repository/lambda-artifacts-${ENV}/"
