@@ -273,7 +273,7 @@ pipeline {
             emailext (
                 subject: "FAILED: Lambda Build - ${LAMBDA_NAME}",
                 body: "Lambda build failed for ${LAMBDA_NAME}. Check Jenkins for details.",
-                to: "dylan@kesslersoftware.com"
+                to: "contact+jenkins@kesslersoftware.com"
             )
         }
     }
