@@ -70,14 +70,14 @@
     <dependency>
       <groupId>com.boycottpro</groupId>
       <artifactId>boycottpro-common-models</artifactId>
-      <version>1.0.11</version>
+      <version>LATEST</version>
     </dependency>
   </dependencies>
   <repositories>
     <repository>
       <id>nexus-public</id>
       <name>Nexus Public Repository</name>
-      <url>http://localhost:8096/repository/maven-public/</url>
+      <url>http://host.docker.internal:8096/repository/maven-public/</url>
       <releases>
         <enabled>true</enabled>
       </releases>
