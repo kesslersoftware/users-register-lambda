@@ -2,6 +2,7 @@ package com.boycottpro.users;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.boycottpro.utilities.Logger;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
 
@@ -22,41 +23,46 @@ public class RegisterUserHandler implements RequestHandler<Map<String, Object>, 
     public Object handleRequest(Map<String, Object> event, Context context) {
         String userId = null;
         String email = null;
+        int lineNum = 25;
         try {
-            // event.request.userAttributes.{sub,email,preferred_username}
             Map<String,Object> request = (Map<String,Object>) event.get("request");
             Map<String,String> attrs   = (Map<String,String>) request.get("userAttributes");
-
-            userId = attrs.get("sub");                 // stable UUID -> use as user_id
+            userId = attrs.get("sub");
             email = attrs.get("email");
-            String prefUser = attrs.get("preferred_username");  // may be null
-
+            String prefUser = attrs.get("preferred_username");
             if (userId == null || email == null) {
-                context.getLogger().log("Missing sub or email in PostConfirmation event");
+                String errorMessage = "";
+                if (userId == null && email == null) {
+                    errorMessage = "both userId and email are missing";
+                } else {
+                    if(userId == null) {
+                        errorMessage = "userId is missing";
+                    } else {
+                        errorMessage = "email is missing";
+                    }
+                }
+                Logger.error(34,userId, errorMessage);
                 return event;
             }
-
+            lineNum = 47;
             Map<String, AttributeValue> item = new HashMap<>();
             item.put("user_id",     AttributeValue.fromS(userId));
             item.put("email_addr",  AttributeValue.fromS(email));
             item.put("username",    AttributeValue.fromS(prefUser == null ? email : prefUser));
             item.put("paying_user", AttributeValue.fromBool(false));
             item.put("created_ts",  AttributeValue.fromN(Long.toString(Instant.now().toEpochMilli())));
-
+            lineNum = 54;
             PutItemRequest put = PutItemRequest.builder()
                     .tableName(TABLE_NAME)
                     .item(item)
                     .conditionExpression("attribute_not_exists(user_id)") // idempotent
                     .build();
-
+            lineNum = 60;
             dynamoDb.putItem(put);
-            context.getLogger().log("User " + userId + " with email: " + email + " registered successfully");
-        } catch (ConditionalCheckFailedException e) {
-            // already exists, safe to ignore'
-            context.getLogger().log("User " + userId + " with email: " + email + " already exists; skipping");
+            } catch (ConditionalCheckFailedException e) {
+            Logger.error(lineNum, userId, " already exists; skipping");
         } catch (Exception e) {
-            context.getLogger().log("User " + userId + " with email: " + email +
-                    "PostConfirmation error: " + e.getMessage());
+            Logger.error(lineNum, userId,"PostConfirmation error: " + e.getMessage());
         }
         return event; // MUST return the event to Cognito
     }
